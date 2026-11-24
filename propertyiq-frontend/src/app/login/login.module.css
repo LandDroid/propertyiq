@@ -1,0 +1,297 @@
+
+.page {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  background: #f4f7fb;
+  color: #172438;
+}
+
+.leftPanel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 52px 9%;
+  overflow: hidden;
+  color: #fff;
+  background:
+    radial-gradient(circle at 80% 20%, rgba(48, 139, 210, 0.3), transparent 34%),
+    linear-gradient(145deg, #10243a, #183c5b 65%, #10243a);
+}
+
+.brand,
+.mobileBrand {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  font-size: 23px;
+  font-weight: 750;
+  letter-spacing: -0.7px;
+}
+
+.brandIcon {
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  border-radius: 13px;
+  color: #fff;
+  background: #2589d4;
+}
+
+.hero {
+  max-width: 570px;
+  margin: 70px 0;
+}
+
+.eyebrow {
+  margin-bottom: 22px;
+  color: #75c4ff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 2px;
+}
+
+.hero h1 {
+  margin: 0;
+  font-size: clamp(38px, 4.2vw, 60px);
+  line-height: 1.12;
+  letter-spacing: -2.3px;
+  font-weight: 750;
+}
+
+.hero h1 span {
+  color: #75c4ff;
+}
+
+.hero p {
+  max-width: 440px;
+  margin-top: 25px;
+  color: #c3d1df;
+  font-size: 17px;
+  line-height: 1.8;
+}
+
+.leftFooter {
+  color: #91a9bf;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+}
+
+.rightPanel {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 45px 28px;
+}
+
+.loginCard {
+  width: 100%;
+  max-width: 440px;
+}
+
+.mobileBrand {
+  display: none;
+  margin-bottom: 40px;
+}
+
+.heading {
+  margin-bottom: 35px;
+}
+
+.securityIcon {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 23px;
+  border-radius: 14px;
+  color: #1976bd;
+  background: #e5f2fc;
+}
+
+.heading h2 {
+  margin: 0;
+  color: #172438;
+  font-size: 34px;
+  font-weight: 750;
+  letter-spacing: -1px;
+}
+
+.heading p {
+  margin: 10px 0 0;
+  color: #718096;
+  font-size: 15px;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.field label {
+  color: #27384d;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.field input {
+  box-sizing: border-box;
+  width: 100%;
+  height: 52px;
+  padding: 0 15px;
+  border: 1px solid #dce3eb;
+  border-radius: 9px;
+  outline: none;
+  background: #fff;
+  color: #172438;
+  font: inherit;
+  font-size: 14px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.field input:focus {
+  border-color: #2589d4;
+  box-shadow: 0 0 0 3px rgba(37, 137, 212, 0.12);
+}
+
+.field input:disabled {
+  background: #f4f6f8;
+}
+
+.field input::placeholder {
+  color: #a0acb9;
+}
+
+.passwordWrap {
+  position: relative;
+}
+
+.passwordWrap input {
+  padding-right: 50px;
+}
+
+.passwordToggle {
+  position: absolute;
+  top: 50%;
+  right: 13px;
+  display: grid;
+  place-items: center;
+  padding: 5px;
+  border: 0;
+  background: transparent;
+  color: #718096;
+  cursor: pointer;
+  transform: translateY(-50%);
+}
+
+.passwordToggle:hover {
+  color: #1976bd;
+}
+
+.error {
+  padding: 12px 14px;
+  border: 1px solid #f2c4c4;
+  border-radius: 8px;
+  background: #fff1f1;
+  color: #a12d2d;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.submit {
+  height: 53px;
+  margin-top: 5px;
+  border: 0;
+  border-radius: 9px;
+  background: #197bc1;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 750;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.submit:hover:not(:disabled) {
+  background: #1268a7;
+  transform: translateY(-1px);
+}
+
+.submit:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.secureNote {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 27px;
+  color: #718096;
+  font-size: 12px;
+}
+
+.secureNote svg {
+  color: #2589d4;
+  flex-shrink: 0;
+}
+
+.copyright {
+  margin-top: 55px;
+  color: #9aa6b4;
+  font-size: 11px;
+  text-align: center;
+}
+
+.loading {
+  align-self: center;
+  color: #718096;
+  font-size: 14px;
+}
+
+@media (max-width: 850px) {
+  .page {
+    grid-template-columns: 1fr;
+  }
+
+  .leftPanel {
+    display: none;
+  }
+
+  .rightPanel {
+    min-height: 100vh;
+    padding: 35px 24px;
+  }
+
+  .mobileBrand {
+    display: flex;
+  }
+
+  .loginCard {
+    max-width: 430px;
+  }
+}
+
+@media (max-width: 480px) {
+  .rightPanel {
+    padding: 28px 20px;
+  }
+
+  .heading h2 {
+    font-size: 30px;
+  }
+
+  .copyright {
+    margin-top: 38px;
+  }
+}
