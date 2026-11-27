@@ -22,30 +22,70 @@ export default function LoginPage() {
 
   // Redirect authenticated users after rendering.
   useEffect(() => {
-    if (!isLoading && isAuthenticated) {
-      router.replace("/");
+  console.log(
+    "AUTH STATE",
+    {
+      isLoading,
+      isAuthenticated,
     }
-  }, [isLoading, isAuthenticated, router]);
+  );
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  if (
+    !isLoading &&
+    isAuthenticated
+  ) {
+    console.log(
+      "AUTHENTICATED - REDIRECTING"
+    );
 
-    if (submitting) return;
-
-    setError("");
-    setSubmitting(true);
-
-    try {
-      await login(email.trim(), password);
-      router.replace("/");
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Unable to sign in."
-      );
-    } finally {
-      setSubmitting(false);
-    }
+    router.replace("/");
   }
+}, [
+  isLoading,
+  isAuthenticated,
+  router,
+]);
+
+  async function handleSubmit(
+  event: FormEvent<HTMLFormElement>
+) {
+  event.preventDefault();
+
+  console.log("LOGIN BUTTON CLICKED");
+
+  if (submitting) {
+    console.log("LOGIN ALREADY IN PROGRESS");
+    return;
+  }
+
+  setError("");
+  setSubmitting(true);
+
+  try {
+    console.log("EMAIL:", email.trim());
+    console.log("CALLING AUTH LOGIN");
+
+    await login(
+      email.trim(),
+      password
+    );
+
+    console.log("LOGIN SUCCESS");
+    console.log("REDIRECTING TO DASHBOARD");
+
+    router.replace("/");
+  } catch (err) {
+    console.error("LOGIN ERROR:", err);
+
+    setError(
+      err instanceof Error
+        ? err.message
+        : "Unable to sign in."
+    );
+  } finally {
+    setSubmitting(false);
+  }
+}
 
   if (isLoading || isAuthenticated) {
     return (

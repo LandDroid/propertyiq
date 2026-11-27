@@ -65,9 +65,9 @@ export class NotificationOutboxWorker {
     NotificationOutboxEventHandler
   >;
 
-  private readonly onHeartbeatError?: (
-    context: NotificationOutboxHeartbeatErrorContext
-  ) => void;
+private readonly onHeartbeatError:
+  ((context: NotificationOutboxHeartbeatErrorContext) => void)
+  | undefined = undefined;
 
   constructor(options: NotificationOutboxWorkerOptions) {
     if (!options.workerId.trim()) {
@@ -133,7 +133,8 @@ export class NotificationOutboxWorker {
       Object.entries(options.handlers ?? {})
     );
 
-    this.onHeartbeatError = options.onHeartbeatError;
+    this.onHeartbeatError =
+  options.onHeartbeatError ?? undefined;
   }
 
   // =====================================================

@@ -129,10 +129,24 @@ export async function listMaintenanceTasks(
       }
     }
 
-    const tasks = await maintenanceTasksService.getAll(context, {
-      propertyId,
-      status,
-    });
+ const filters: {
+  propertyId?: string;
+  status?: string;
+} = {};
+
+if (propertyId) {
+  filters.propertyId = propertyId;
+}
+
+if (status) {
+  filters.status = status;
+}
+
+const tasks =
+  await maintenanceTasksService.getAll(
+    context,
+    filters
+  );
 
     return res.status(200).json({
       success: true,

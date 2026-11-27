@@ -11,13 +11,28 @@ export type AlertAssignmentAccessContext = {
 export type CreateAlertAssignmentData = {
   alertId: string;
   propertyId: string;
-  membershipId?: string | null;
-  serviceProviderId?: string | null;
-  notes?: string | null;
+
+  membershipId?:
+    | string
+    | null
+    | undefined;
+
+  serviceProviderId?:
+    | string
+    | null
+    | undefined;
+
+  notes?:
+    | string
+    | null
+    | undefined;
 };
 
 export type UnassignAlertData = {
-  notes?: string | null;
+  notes?:
+    | string
+    | null
+    | undefined;
 };
 
 function isPrivileged(role: string) {

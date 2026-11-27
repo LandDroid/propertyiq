@@ -1,16 +1,23 @@
+import type {
+  Request,
+  Response,
+  NextFunction,
+} from "express";
 
-import type { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 
 import { authConfig } from "../config/auth";
 import { getDatabase, sql } from "../config/database";
 
 // =====================================================
-// AUTHENTICATED USER TYPE
+// AUTHENTICATED USER
 // =====================================================
 
 export interface AuthenticatedUser {
   userId: string;
+  membershipId: string;
+  organizationId: string;
+  role: string;
 }
 
 declare global {
@@ -19,6 +26,16 @@ declare global {
       user?: AuthenticatedUser;
     }
   }
+}
+
+// =====================================================
+// JWT PAYLOAD
+// =====================================================
+
+interface AccessTokenPayload
+  extends jwt.JwtPayload {
+  sub: string;
+  type: "access";
 }
 
 // =====================================================
@@ -31,14 +48,17 @@ async function authenticate(
   next: NextFunction,
   required: boolean
 ): Promise<void> {
-  const authorization = req.headers.authorization;
+  const authorization =
+    req.headers.authorization;
 
   if (!authorization) {
     if (required) {
       res.status(401).json({
         success: false,
-        message: "Authentication required.",
+        message:
+          "Authentication required.",
       });
+
       return;
     }
 
@@ -46,42 +66,58 @@ async function authenticate(
     return;
   }
 
-  if (!authorization.startsWith("Bearer ")) {
+  if (
+    !authorization.startsWith(
+      "Bearer "
+    )
+  ) {
     res.status(401).json({
       success: false,
-      message: "Invalid authentication header.",
+      message:
+        "Invalid authentication header.",
     });
+
     return;
   }
 
-  const token = authorization.substring(7).trim();
+  const token = authorization
+    .substring(7)
+    .trim();
 
   if (!token) {
     res.status(401).json({
       success: false,
-      message: "Authentication token is missing.",
+      message:
+        "Authentication token is missing.",
     });
+
     return;
   }
 
   let userId: string;
 
-  // Verify the access token.
   try {
     const decoded = jwt.verify(
       token,
-      authConfig.accessTokenSecret
-    );
+      authConfig.accessTokenSecret,
+      {
+        issuer: "propertyiq",
+        audience: "propertyiq-app",
+      }
+    ) as AccessTokenPayload;
 
     if (
+      !decoded ||
       typeof decoded === "string" ||
       decoded.type !== "access" ||
       typeof decoded.sub !== "string"
     ) {
       res.status(401).json({
         success: false,
-        message: "Invalid authentication token.",
+        message:
+          "Invalid authentication token.",
       });
+
       return;
     }
 
@@ -92,34 +128,78 @@ async function authenticate(
       message:
         "Your session is invalid or expired. Please log in again.",
     });
+
     return;
   }
 
-  // Confirm the account still exists and is active.
   try {
     const pool = await getDatabase();
 
     const result = await pool
       .request()
-      .input("userId", sql.UniqueIdentifier, userId)
+      .input(
+        "userId",
+        sql.UniqueIdentifier,
+        userId
+      )
       .query(`
-        SELECT UserId
-        FROM dbo.Users
+        SELECT TOP 1
+            u.UserId,
+            m.MembershipId,
+            m.OrganizationId,
+            m.Role
+        FROM dbo.Users u
+
+        INNER JOIN dbo.Memberships m
+            ON m.UserId = u.UserId
+
+        INNER JOIN dbo.Organizations o
+            ON o.OrganizationId = m.OrganizationId
+
         WHERE
-          UserId = @userId
-          AND LOWER(LTRIM(RTRIM(Status))) = 'active'
+            u.UserId = @userId
+            AND LOWER(
+                LTRIM(
+                    RTRIM(
+                        u.Status
+                    )
+                )
+            ) = 'active'
+            AND LOWER(
+                LTRIM(
+                    RTRIM(
+                        o.Status
+                    )
+                )
+            ) = 'active'
+
+        ORDER BY
+            m.CreatedAt ASC;
       `);
 
-    if (result.recordset.length === 0) {
+    if (
+      result.recordset.length === 0
+    ) {
       res.status(401).json({
         success: false,
         message:
-          "Your account is inactive or no longer exists. Please contact support.",
+          "Your account is inactive or no longer has organization access.",
       });
+
       return;
     }
 
-    req.user = { userId };
+    const user =
+      result.recordset[0];
+
+    req.user = {
+      userId: user.UserId,
+      membershipId:
+        user.MembershipId,
+      organizationId:
+        user.OrganizationId,
+      role: user.Role,
+    };
 
     next();
   } catch (error) {
@@ -136,14 +216,16 @@ export async function requireAuth(
   res: Response,
   next: NextFunction
 ): Promise<void> {
-  await authenticate(req, res, next, true);
+  await authenticate(
+    req,
+    res,
+    next,
+    true
+  );
 }
 
 // =====================================================
 // OPTIONAL AUTHENTICATION
-//
-// Allows anonymous requests but validates credentials
-// whenever an Authorization header is supplied.
 // =====================================================
 
 export async function optionalAuth(
@@ -151,5 +233,10 @@ export async function optionalAuth(
   res: Response,
   next: NextFunction
 ): Promise<void> {
-  await authenticate(req, res, next, false);
+  await authenticate(
+    req,
+    res,
+    next,
+    false
+  );
 }

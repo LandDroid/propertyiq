@@ -10,12 +10,33 @@ export type AlertAccessContext = {
 
 export type CreateAlertInput = {
   propertyId: string;
-  deviceId?: string | null;
-  sensorId?: string | null;
-  alertRuleId?: string | null;
+
+  deviceId?:
+    | string
+    | null
+    | undefined;
+
+  sensorId?:
+    | string
+    | null
+    | undefined;
+
+  alertRuleId?:
+    | string
+    | null
+    | undefined;
+
   title: string;
-  message?: string | null;
-  severity?: string;
+
+  message?:
+    | string
+    | null
+    | undefined;
+
+  severity?:
+    | string
+    | undefined;
+
   idempotencyKey: string;
 };
 

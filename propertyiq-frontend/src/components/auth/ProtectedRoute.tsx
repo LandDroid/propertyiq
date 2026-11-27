@@ -11,7 +11,19 @@ export default function ProtectedRoute({
   children: ReactNode;
 }) {
   const router = useRouter();
-  const { isLoading, isAuthenticated } = useAuth();
+ const {
+  isLoading,
+  isAuthenticated,
+  user,
+  accessToken,
+} = useAuth() as any;
+
+console.log("PROTECTED ROUTE");
+console.log("isLoading:", isLoading);
+console.log("isAuthenticated:", isAuthenticated);
+console.log("user:", user);
+console.log("accessToken:", accessToken);
+
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {

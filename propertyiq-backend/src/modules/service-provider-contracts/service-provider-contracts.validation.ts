@@ -141,24 +141,40 @@ function validateContractDates(data: {
 function addContractDateIssues(
   data: {
     startDate: string;
-    endDate?: string | null;
-    renewalDate?: string | null;
+
+    endDate?:
+      | string
+      | null
+      | undefined;
+
+    renewalDate?:
+      | string
+      | null
+      | undefined;
   },
   ctx: z.RefinementCtx
 ) {
-  if (data.endDate && data.endDate < data.startDate) {
+  if (
+    data.endDate &&
+    data.endDate < data.startDate
+  ) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ["endDate"],
-      message: "End date cannot be before the start date.",
+      message:
+        "End date cannot be before the start date.",
     });
   }
 
-  if (data.renewalDate && data.renewalDate < data.startDate) {
+  if (
+    data.renewalDate &&
+    data.renewalDate < data.startDate
+  ) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ["renewalDate"],
-      message: "Renewal date cannot be before the start date.",
+      message:
+        "Renewal date cannot be before the start date.",
     });
   }
 
@@ -170,7 +186,8 @@ function addContractDateIssues(
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ["renewalDate"],
-      message: "Renewal date cannot be after the contract end date.",
+      message:
+        "Renewal date cannot be after the contract end date.",
     });
   }
 }

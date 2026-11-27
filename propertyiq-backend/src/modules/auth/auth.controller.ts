@@ -17,9 +17,9 @@ import {
 
 const refreshCookieOptions = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
+  secure: false,
   sameSite: "lax" as const,
-  path: "/api/v1/auth",
+  path: "/",
 };
 
 function setRefreshCookie(res: Response, token: string) {
@@ -150,8 +150,18 @@ export async function login(req: Request, res: Response) {
 }
 
 // REFRESH SESSION
-export async function refresh(req: Request, res: Response) {
-  const refreshToken = req.cookies?.propertyiq_refresh;
+export async function refresh(
+  req: Request,
+  res: Response
+) {
+  console.log("========== REFRESH ==========");
+  console.log("Cookies received:");
+  console.log(req.cookies);
+
+  const refreshToken =
+    req.cookies?.propertyiq_refresh;
+
+  console.log("Refresh token exists:", !!refreshToken);
 
   if (!refreshToken || typeof refreshToken !== "string") {
     return res.status(401).json({
@@ -170,7 +180,10 @@ export async function refresh(req: Request, res: Response) {
       message: "Session refreshed.",
       data: createSafeResponse(result),
     });
-  } catch {
+  } catch (error) {
+    console.log("REFRESH FAILED:");
+    console.log(error);
+
     clearRefreshCookie(res);
 
     return res.status(401).json({
@@ -179,7 +192,6 @@ export async function refresh(req: Request, res: Response) {
     });
   }
 }
-
 // LOGOUT
 export async function logout(req: Request, res: Response) {
   const refreshToken = req.cookies?.propertyiq_refresh;

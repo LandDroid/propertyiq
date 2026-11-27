@@ -217,15 +217,22 @@ export async function acceptInvitation(
     passwordHash = await argon2.hash(input.password);
   }
 
-  const accepted = await acceptTeamInvitation({
+ const accepted =
+  await acceptTeamInvitation({
     tokenHash,
-    firstName: existingUser
-      ? undefined
-      : input.firstName,
-    lastName: existingUser
-      ? undefined
-      : input.lastName,
-    passwordHash,
+
+    firstName:
+      input.firstName ??
+      existingUser?.firstName ??
+      "",
+
+    lastName:
+      input.lastName ??
+      existingUser?.lastName ??
+      null,
+
+    passwordHash:
+      passwordHash ?? "",
   });
 
   return {
