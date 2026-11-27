@@ -1,8 +1,8 @@
-
 import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
+import rateLimit from "express-rate-limit";
 
 import { requireAuth } from "./middleware/auth.middleware";
 
@@ -28,32 +28,67 @@ import notificationDeliveriesRoutes from "./modules/notifications/notification-d
 
 const app = express();
 
-// --------------------------------------------------
-// SECURITY MIDDLEWARE
-// --------------------------------------------------
-
+// Do not reveal the underlying server framework in response headers.
+app.disable("x-powered-by");
 app.use(helmet());
+
+// Allow only explicitly configured frontend origins. CORS is a browser policy,
+// not an authorization mechanism; protected routes still require authentication.
+const configuredOrigins = (process.env.CORS_ORIGIN ?? "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+const allowedOrigins = new Set(
+  configuredOrigins.length > 0
+    ? configuredOrigins
+    : process.env.NODE_ENV === "production"
+      ? []
+      : ["http://localhost:3000"]
+);
 
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN
-      ? process.env.CORS_ORIGIN.split(",").map((origin) => origin.trim())
-      : "http://localhost:3001",
+    origin: (origin, callback) => {
+      // Requests without an Origin header (for example health checks and server
+      // to server calls) are not subject to browser CORS enforcement.
+      callback(null, !origin || allowedOrigins.has(origin));
+    },
     credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+    maxAge: 600,
   })
 );
 
-// --------------------------------------------------
-// REQUEST MIDDLEWARE
-// --------------------------------------------------
-
-app.use(express.json({ limit: "1mb" }));
+// Keep request bodies bounded to reduce resource-exhaustion risk.
+app.use(express.json({ limit: "1mb", strict: true }));
+app.use(express.urlencoded({ extended: false, limit: "10kb" }));
 app.use(cookieParser());
 
-// --------------------------------------------------
-// PUBLIC HEALTH CHECK
-// --------------------------------------------------
+const apiRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 300,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: "Too many requests. Please try again later.",
+  },
+});
 
+const authRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: "Too many authentication attempts. Please try again later.",
+  },
+});
+
+// Public health check is intentionally not rate limited so monitoring can
+// continue to detect service availability.
 app.get("/api/v1/health", (_req: Request, res: Response) => {
   res.status(200).json({
     success: true,
@@ -62,27 +97,14 @@ app.get("/api/v1/health", (_req: Request, res: Response) => {
   });
 });
 
-// --------------------------------------------------
-// PUBLIC AUTHENTICATION ROUTES
-// --------------------------------------------------
+app.use("/api/v1", apiRateLimit);
 
-app.use("/api/v1/auth", authRoutes);
-
-// --------------------------------------------------
-// TEAM ROUTES
-// --------------------------------------------------
-
+// Public authentication and team routes.
+app.use("/api/v1/auth", authRateLimit, authRoutes);
 app.use("/api/v1/teams", teamsRoutes);
 
-// --------------------------------------------------
-// AUTHENTICATION REQUIRED FOR APPLICATION APIs
-// --------------------------------------------------
-
+// Authentication required for application APIs.
 app.use("/api/v1", requireAuth);
-
-// --------------------------------------------------
-// PROTECTED APPLICATION ROUTES
-// --------------------------------------------------
 
 app.use("/api/v1/properties", propertiesRoutes);
 app.use("/api/v1/devices", devicesRoutes);
@@ -95,40 +117,12 @@ app.use("/api/v1/settings", settingsRoutes);
 app.use("/api/v1/property-managers", propertyManagersRoutes);
 app.use("/api/v1/property-services", propertyServicesRoutes);
 app.use("/api/v1/service-providers", serviceProvidersRoutes);
-
-app.use(
-  "/api/v1/notifications/deliveries",
-  notificationDeliveriesRoutes
-);
-
-app.use(
-  "/api/v1/service-provider-contacts",
-  serviceProviderContactsRoutes
-);
-
-app.use(
-  "/api/v1/service-provider-contracts",
-  serviceProviderContractsRoutes
-);
-
-app.use(
-  "/api/v1/maintenance-task-assignments",
-  maintenanceTaskAssignmentsRoutes
-);
-
-app.use(
-  "/api/v1/maintenance-tasks",
-  maintenanceTasksRoutes
-);
-
-app.use(
-  "/api/v1/notifications/preferences",
-  notificationPreferencesRoutes
-);
-
-// --------------------------------------------------
-// 404 HANDLER
-// --------------------------------------------------
+app.use("/api/v1/notifications/deliveries", notificationDeliveriesRoutes);
+app.use("/api/v1/service-provider-contacts", serviceProviderContactsRoutes);
+app.use("/api/v1/service-provider-contracts", serviceProviderContractsRoutes);
+app.use("/api/v1/maintenance-task-assignments", maintenanceTaskAssignmentsRoutes);
+app.use("/api/v1/maintenance-tasks", maintenanceTasksRoutes);
+app.use("/api/v1/notifications/preferences", notificationPreferencesRoutes);
 
 app.use((_req: Request, res: Response) => {
   res.status(404).json({
@@ -137,19 +131,25 @@ app.use((_req: Request, res: Response) => {
   });
 });
 
-// --------------------------------------------------
-// GLOBAL ERROR HANDLER
-// --------------------------------------------------
-
 app.use(
   (
-    error: Error,
+    error: Error & { status?: number; statusCode?: number },
     _req: Request,
     res: Response,
     _next: NextFunction
   ) => {
-    console.error("API Error:", error);
+    // Avoid returning stack traces or internal details to API clients.
+    const status = error.statusCode ?? error.status;
+    if (status === 400 || status === 413) {
+      res.status(status).json({
+        success: false,
+        message: status === 413 ? "Request body is too large." : "Invalid request body.",
+      });
+      return;
+    }
 
+    // Keep logs useful without serializing request data or credentials.
+    console.error("API request failed:", error.name || "UnknownError");
     res.status(500).json({
       success: false,
       message: "An unexpected server error occurred",
