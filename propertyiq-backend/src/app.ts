@@ -1,8 +1,8 @@
-
 import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
+import rateLimit from "express-rate-limit";
 
 import { requireAuth } from "./middleware/auth.middleware";
 
@@ -28,33 +28,79 @@ import notificationDeliveriesRoutes from "./modules/notifications/notification-d
 
 const app = express();
 
-// --------------------------------------------------
-// SECURITY MIDDLEWARE
-// --------------------------------------------------
-
-app.use(helmet());
+app.disable("x-powered-by");
 
 app.use(
-  cors({
-    origin: process.env.CORS_ORIGIN
-      ? process.env.CORS_ORIGIN.split(",").map((origin) => origin.trim())
-      : "http://localhost:3001",
-    credentials: true,
+  helmet({
+    crossOriginResourcePolicy: { policy: "same-origin" },
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        baseUri: ["'self'"],
+        objectSrc: ["'none'"],
+        frameAncestors: ["'none'"],
+        upgradeInsecureRequests:
+          process.env.NODE_ENV === "production" ? [] : null,
+      },
+    },
   })
 );
 
-// --------------------------------------------------
-// REQUEST MIDDLEWARE
-// --------------------------------------------------
+const origins = (process.env.CORS_ORIGIN ?? "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
 
-app.use(express.json({ limit: "1mb" }));
+const allowedOrigins = new Set(
+  origins.length > 0
+    ? origins
+    : process.env.NODE_ENV === "production"
+      ? []
+      : ["http://localhost:3000"]
+);
+
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin || allowedOrigins.has(origin)) {
+        callback(null, true);
+        return;
+      }
+      callback(new Error("Origin is not allowed by CORS"));
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+    maxAge: 600,
+  })
+);
+
+app.use(express.json({ limit: "64kb", strict: true }));
+app.use(express.urlencoded({ extended: false, limit: "64kb" }));
 app.use(cookieParser());
 
-// --------------------------------------------------
-// PUBLIC HEALTH CHECK
-// --------------------------------------------------
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 300,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  message: { success: false, message: "Too many requests. Try again later." },
+});
 
-app.get("/api/v1/health", (_req: Request, res: Response) => {
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  skipSuccessfulRequests: true,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: "Too many authentication attempts. Try again later.",
+  },
+});
+
+app.get("/api/v1/health", (_req, res) => {
+  res.set("Cache-Control", "no-store");
   res.status(200).json({
     success: true,
     message: "PropertyIQ API is running",
@@ -62,28 +108,11 @@ app.get("/api/v1/health", (_req: Request, res: Response) => {
   });
 });
 
-// --------------------------------------------------
-// PUBLIC AUTHENTICATION ROUTES
-// --------------------------------------------------
-
-app.use("/api/v1/auth", authRoutes);
-
-// --------------------------------------------------
-// TEAM ROUTES
-// --------------------------------------------------
-
+app.use("/api/v1", generalLimiter);
+app.use("/api/v1/auth", authLimiter, authRoutes);
 app.use("/api/v1/teams", teamsRoutes);
 
-// --------------------------------------------------
-// AUTHENTICATION REQUIRED FOR APPLICATION APIs
-// --------------------------------------------------
-
 app.use("/api/v1", requireAuth);
-
-// --------------------------------------------------
-// PROTECTED APPLICATION ROUTES
-// --------------------------------------------------
-
 app.use("/api/v1/properties", propertiesRoutes);
 app.use("/api/v1/devices", devicesRoutes);
 app.use("/api/v1/alerts", alertsRoutes);
@@ -95,66 +124,37 @@ app.use("/api/v1/settings", settingsRoutes);
 app.use("/api/v1/property-managers", propertyManagersRoutes);
 app.use("/api/v1/property-services", propertyServicesRoutes);
 app.use("/api/v1/service-providers", serviceProvidersRoutes);
-
-app.use(
-  "/api/v1/notifications/deliveries",
-  notificationDeliveriesRoutes
-);
-
-app.use(
-  "/api/v1/service-provider-contacts",
-  serviceProviderContactsRoutes
-);
-
-app.use(
-  "/api/v1/service-provider-contracts",
-  serviceProviderContractsRoutes
-);
-
-app.use(
-  "/api/v1/maintenance-task-assignments",
-  maintenanceTaskAssignmentsRoutes
-);
-
-app.use(
-  "/api/v1/maintenance-tasks",
-  maintenanceTasksRoutes
-);
-
-app.use(
-  "/api/v1/notifications/preferences",
-  notificationPreferencesRoutes
-);
-
-// --------------------------------------------------
-// 404 HANDLER
-// --------------------------------------------------
+app.use("/api/v1/notifications/deliveries", notificationDeliveriesRoutes);
+app.use("/api/v1/service-provider-contacts", serviceProviderContactsRoutes);
+app.use("/api/v1/service-provider-contracts", serviceProviderContractsRoutes);
+app.use("/api/v1/maintenance-task-assignments", maintenanceTaskAssignmentsRoutes);
+app.use("/api/v1/maintenance-tasks", maintenanceTasksRoutes);
+app.use("/api/v1/notifications/preferences", notificationPreferencesRoutes);
 
 app.use((_req: Request, res: Response) => {
-  res.status(404).json({
-    success: false,
-    message: "API endpoint not found",
-  });
+  res.status(404).json({ success: false, message: "API endpoint not found" });
 });
 
-// --------------------------------------------------
-// GLOBAL ERROR HANDLER
-// --------------------------------------------------
+app.use((error: Error & { status?: number }, _req: Request, res: Response, _next: NextFunction) => {
+  const status = error.status ?? 500;
 
-app.use(
-  (
-    error: Error,
-    _req: Request,
-    res: Response,
-    _next: NextFunction
-  ) => {
-    console.error("API Error:", error);
-
-    res.status(500).json({
-      success: false,
-      message: "An unexpected server error occurred",
-    });
+  if (status === 400) {
+    res.status(400).json({ success: false, message: "Invalid request" });
+    return;
   }
-);
+
+  if (status === 413) {
+    res.status(413).json({ success: false, message: "Request is too large" });
+    return;
+  }
+
+  if (error.message === "Origin is not allowed by CORS") {
+    res.status(403).json({ success: false, message: "Origin is not allowed" });
+    return;
+  }
+
+  console.error("Unhandled API error:", error.name);
+  res.status(500).json({ success: false, message: "Unexpected server error" });
+});
 
 export default app;
